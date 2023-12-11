@@ -12,6 +12,7 @@ def add_to_db_users(data: Dict, transfer_date: str) -> None:
         user = tables.User(**data)
         session.add(user)
         session.commit()
+
         create_operation(user_id=user.id, summ=data['balance'], transfer_date=transfer_date)
 
 
