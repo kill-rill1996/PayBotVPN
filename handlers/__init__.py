@@ -1,3 +1,3 @@
-from handlers import users_list
+from handlers import handlers
 
 

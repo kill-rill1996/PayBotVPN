@@ -12,5 +12,5 @@ ID_ADMIN_2 = os.getenv('ID_ADMIN_2')
 ID_ADMIN_3 = os.getenv('ID_ADMIN_3')
 
 CERT_SHA256 = os.getenv('CERT_SHA256')
-API_URL = os.getenv('API_URL')
+OUTLINE_API_URL = os.getenv('OUTLINE_API_URL')
 

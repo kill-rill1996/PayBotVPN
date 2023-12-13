@@ -7,9 +7,15 @@ from .database import Session
 from sqlalchemy import text
 
 
-def add_to_db_users(data: Dict, transfer_date: str) -> None:
+def add_to_db_users(data: Dict, transfer_date: str, key_id: str) -> None:
     with Session() as session:
-        user = tables.User(**data)
+        user = tables.User(
+            user_name=data["user_name"],
+            balance=data["balance"],
+            date_expiration=data["date_expiration"],
+            description=data["description"],
+            key_id=key_id
+        )
         session.add(user)
         session.commit()
 
@@ -22,7 +28,7 @@ def get_all_users_from_db():
     return users
 
 
-def get_user_balance_from_db(user_name):
+def get_user_from_db(user_name: str):
     with Session() as session:
         user = session.query(tables.User).filter_by(user_name=user_name).first()
     return user
@@ -45,6 +51,7 @@ def delete_user_from_db(user_name):
         session.delete(user)
         session.query(tables.Operation).filter_by(user_id=user.id).delete()
         session.commit()
+        return user
 
 
 def create_operation(summ, transfer_date, user_id=None, user_name=None):
@@ -65,13 +72,10 @@ def get_all_operations_from_db(limit=None):
             query = text("SELECT * FROM operations LEFT JOIN users on operations.user_id = users.id ORDER BY date_operation DESC LIMIT 10")
             user_operations = session.execute(query)
             print(user_operations)
-            # user_operations = session.query(tables.Operation).all()\
-            #     .order_by(tables.Operation.date_operation.desc()).limit(limit)
-            #user_operations = session.query(tables.Operation).options(joinedload(tables.Operation.user_id))\
-            #   .order_by(tables.Operation.date_operation.desc()).limit(limit)
         else:
             user_operations = session.query(tables.Operation).all()
     return user_operations
+
 
 def get_user_operations_from_db(user_id, limit=None):
     with Session() as session:
@@ -82,3 +86,17 @@ def get_user_operations_from_db(user_id, limit=None):
             user_operations = session.query(tables.Operation).filter_by(user_id=user_id).\
                 order_by(tables.Operation.date_operation.desc()).limit(5)
     return user_operations
+
+
+def block_user_db(key_id: str):
+    with Session() as session:
+        user = session.query(tables.User).filter_by(key_id=key_id).first()
+        user.disabled = True
+        session.commit()
+
+
+def unblock_user_db(key_id: str):
+    with Session() as session:
+        user = session.query(tables.User).filter_by(key_id=key_id).first()
+        user.disabled = False
+        session.commit()

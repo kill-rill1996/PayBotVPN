@@ -1,8 +1,9 @@
 from datetime import datetime
 
 from aiogram import types, Dispatcher
-from database.services import add_to_db_users, get_all_users_from_db, get_user_balance_from_db, \
-    update_balance_and_date_for_user, delete_user_from_db, create_operation, get_user_operations_from_db, get_all_operations_from_db
+from database.services import add_to_db_users, get_all_users_from_db, get_user_from_db, \
+    update_balance_and_date_for_user, delete_user_from_db, create_operation, get_user_operations_from_db, \
+    get_all_operations_from_db, block_user_db, unblock_user_db
 from handlers.service import check_date, calculate_expiration_date, is_debtor
 from create_bot import bot
 from aiogram.dispatcher import FSMContext, filters
@@ -11,6 +12,9 @@ from keyboards.users_kb import create_main_keyboard, create_balance_keyboard, cr
     create_users_list_keyboard, create_user_keyboard, confirm_delete_user_keyboards
 from config import ID_ADMIN_1, ID_ADMIN_2, ID_ADMIN_3
 from typing import Union
+
+from .messages import get_user_info_message
+from .outline_services import create_user_outline, delete_user_outline, block_user_outline, unblock_user_outline
 
 
 async def start_bot(message: types.Message):
@@ -39,41 +43,20 @@ async def get_debtors_list(message: types.Message):
                              reply_markup=create_users_list_keyboard(debtors_list))
 
 
-async def get_user_menu(callback: types.CallbackQuery):
-    """Открывает меню пользователя"""
-    user_name = callback.data.split('*')[1]
-    user = get_user_balance_from_db(user_name)
-    message_text = f'{user.user_name}'
-    await bot.send_message(chat_id=callback.message.chat.id,
-                           text=message_text, reply_markup=create_user_keyboard(user.user_name))
-
-
-async def get_user_balance(callback: types.CallbackQuery):
+async def get_user_info(callback: types.CallbackQuery):
     """Inline клавиатура "Информация" для пользователя"""
     user_name = callback.data.split('*')[1]
-    user = get_user_balance_from_db(user_name)
-    if is_debtor(user):
-        days_of_delay = datetime.now().date()-user.date_expiration
-        await bot.send_message(chat_id=callback.message.chat.id,
-                               text=f'Пользователь: {user.user_name}\n'
-                                    f'Баланс: {user.balance} ₽\n'
-                                    f'Дата истечения срока: {user.date_expiration.strftime("%d.%m.%Y")}\n'
-                                    f'Количество дней просрочки: {days_of_delay.days} дней\n'
-                                    f'*{user.description}',
-                               reply_markup=create_user_keyboard(user.user_name))
-    else:
-        await bot.send_message(chat_id=callback.message.chat.id,
-                               text=f'Пользователь: {user.user_name}\n'
-                                    f'Баланс: {user.balance} ₽\n'
-                                    f'Дата истечения срока: {user.date_expiration.strftime("%d.%m.%Y")}\n'
-                                    f'*{user.description}',
-                               reply_markup=create_user_keyboard(user.user_name))
+    user = get_user_from_db(user_name)
+    text_message = get_user_info_message(user, user.disabled)
+    await bot.send_message(chat_id=callback.message.chat.id,
+                           text=text_message,
+                           reply_markup=create_user_keyboard(user.user_name, user.disabled))
 
 
 async def get_user_last_operations(callback: types.CallbackQuery):
     """Inline клавиатура "Последние операции" для пользователя"""
     user_name = callback.data.split('*')[1]
-    user = get_user_balance_from_db(user_name)
+    user = get_user_from_db(user_name)
     user_operations = get_user_operations_from_db(user.id)
     string = ''
     for operation in enumerate(user_operations):
@@ -87,8 +70,6 @@ async def get_last_operations(message: types.Message):
     operations = get_all_operations_from_db(limit=10)
     string = ''
     for operation in enumerate(operations):
-        #string = string + f'{operation[0] + 1}. Дата операции {operation[1].date_operation}\n' \
-        #                 f'Сумма {operation[1].summ}\n'
         string = string + f'{operation[0] + 1}. {operation[1].user_name} {operation[1].date_operation}\n   Сумма {operation[1].summ}р.\n'
     await message.answer(string, reply_markup=create_main_keyboard())
 
@@ -230,8 +211,10 @@ async def add_description(message: types.Message, state: FSMContext):
         data['description'] = message.text
         transfer_date = data['transfer_date']
         del data['transfer_date']
-        add_to_db_users(data, transfer_date)
-        await message.answer('Данные успешно добавлены', reply_markup=create_main_keyboard())
+        outline_new_key = create_user_outline(data)     # create user in outline
+        add_to_db_users(data, transfer_date, outline_new_key.key_id)    # create user in db
+        await message.answer('Данные успешно добавлены')
+        await message.answer(f'{outline_new_key.access_url}', reply_markup=create_main_keyboard())
     await state.finish()
 
 
@@ -252,13 +235,15 @@ async def confirm_delete_user(callback: types.CallbackQuery):
 
 
 async def delete_user(callback: types.CallbackQuery):
-    user = callback.data.split('*')[1]
+    user_name = callback.data.split('*')[1]
     users = get_all_users_from_db()
     if callback.data.split('*')[0] == 'yes':
-        delete_user_from_db(user)
+        user = delete_user_from_db(user_name)   # delete from db
+        delete_user_outline(user.key_id)    # delete from outline
+
         users = get_all_users_from_db()
         await bot.send_message(chat_id=callback.message.chat.id,
-                               text=f'Пользователь <b>{user}</b> успешно удален',
+                               text=f'Пользователь <b>{user.user_name}</b> успешно удален',
                                parse_mode='html')
         await bot.send_message(chat_id=callback.message.chat.id,
                                text=f'Список пользователей ({len(users)}):',
@@ -277,6 +262,32 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer('OK', reply_markup=create_main_keyboard())
 
 
+async def block_user(callback: types.CallbackQuery):
+    username = callback.data.split('*')[1]
+    user = get_user_from_db(username)
+
+    block_user_outline(user.key_id)
+    block_user_db(user.key_id)
+
+    text_message = get_user_info_message(user, True)
+    await callback.message.answer(f'Пользователь {username} заблокирован', reply_markup=create_main_keyboard())
+    await callback.message.answer(text=text_message,
+                                  reply_markup=create_user_keyboard(user.user_name, True))
+
+
+async def unblock_user(callback: types.CallbackQuery):
+    username = callback.data.split('*')[1]
+    user = get_user_from_db(username)
+
+    unblock_user_outline(user.key_id)
+    unblock_user_db(user.key_id)
+
+    text_message = get_user_info_message(user, False)
+    await callback.message.answer(f'Пользователь {username} разблокирован', reply_markup=create_main_keyboard())
+    await callback.message.answer(text=text_message,
+                                  reply_markup=create_user_keyboard(user.user_name, False))
+
+
 def register_handlers_users(dp: Dispatcher):
     dp.register_message_handler(start_bot, filters.IDFilter(user_id=ID_ADMIN_1), commands=['start'])
     dp.register_message_handler(start_bot, filters.IDFilter(user_id=ID_ADMIN_2), commands=['start'])
@@ -290,8 +301,9 @@ def register_handlers_users(dp: Dispatcher):
     dp.register_callback_query_handler(delete_user, lambda callback: callback.data.split('*')[0] == 'yes')
     dp.register_callback_query_handler(delete_user, lambda callback: callback.data.split('*')[0] == 'no')
     dp.register_message_handler(get_debtors_list, text='Список должников')
-    dp.register_callback_query_handler(get_user_menu, lambda callback: callback.data.split('*')[0] == 'user')
-    dp.register_callback_query_handler(get_user_balance, lambda callback: callback.data.split('*')[0] == 'balance')
+    dp.register_callback_query_handler(block_user, lambda callback: callback.data.split('*')[0] == 'block')
+    dp.register_callback_query_handler(unblock_user, lambda callback: callback.data.split('*')[0] == 'unblock')
+    dp.register_callback_query_handler(get_user_info, lambda callback: callback.data.split('*')[0] == 'user')
     dp.register_callback_query_handler(get_user_last_operations,
                                        lambda callback: callback.data.split('*')[0] == 'last_operations')
     dp.register_callback_query_handler(update_user_balance, lambda callback: callback.data.split('*')[0] == 'deposit',

@@ -10,8 +10,8 @@ class User(Base):
     balance = Column(Integer)
     date_expiration = Column(Date)
     description = Column(String, nullable=True)
-    # key_id = Column(Integer)
-    # disabled = Column(Boolean, default=False)
+    key_id = Column(Integer)
+    disabled = Column(Boolean, default=False)
 
     def __repr__(self):
         return f'{self.id}. {self.user_name}'

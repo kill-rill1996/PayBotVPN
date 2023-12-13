@@ -41,9 +41,12 @@ def create_transfer_date_keyboard():
     return transfer_date_keyboard
 
 
-def create_user_keyboard(username):
+def create_user_keyboard(username, is_disabled: bool):
     keyboard = InlineKeyboardMarkup(row_width=2)
-    button1 = InlineKeyboardButton(text='Информация', callback_data=f'balance*{username}')
+    if is_disabled:
+        button1 = InlineKeyboardButton(text='Разблокировать', callback_data=f'unblock*{username}')
+    else:
+        button1 = InlineKeyboardButton(text='Заблокировать', callback_data=f'block*{username}')
     button2 = InlineKeyboardButton(text='Пополнить', callback_data=f'deposit*{username}')
     button3 = InlineKeyboardButton(text='Удалить', callback_data=f'delete_this_user*{username}')
     button4 = InlineKeyboardButton(text='Назад', callback_data='back')

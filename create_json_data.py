@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import json
 
-from config import SQLITE_URL, API_URL, CERT_SHA256
+from config import SQLITE_URL, OUTLINE_API_URL, CERT_SHA256
 from database import tables
 
 engine = create_engine(f'{SQLITE_URL}', connect_args={"check_same_thread": False})
@@ -35,6 +35,7 @@ def read_all_users_from_db():
                     'date_operation': convert_date_to_str(operation.date_operation),
                     'user_id': operation.user_id
                 })
+            print(f"User {user.user_name} выполнено!")
 
     write_data_in_json_file(users_dict)
 
@@ -49,7 +50,7 @@ def convert_date_to_str(date: datetime):
 
 
 def get_key_id(user_name: str):
-    client = OutlineVPN(api_url=API_URL, cert_sha256=CERT_SHA256)
+    client = OutlineVPN(api_url=OUTLINE_API_URL, cert_sha256=CERT_SHA256)
     for user_from_outline in client.get_keys():
         if user_name == user_from_outline.name:
             return user_from_outline.key_id
