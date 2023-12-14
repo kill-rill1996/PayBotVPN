@@ -20,3 +20,11 @@ def block_user_outline(key_id: str):
 
 def unblock_user_outline(key_id: str):
     client.delete_data_limit(key_id)
+
+
+def get_user_transferred_data(key_id: int):
+    all_users_data = client.get_transferred_data()['bytesTransferredByUserId']
+    data = all_users_data.get(str(key_id))
+    if data is None:
+        return 0
+    return round(data / 10 ** 9, 2)

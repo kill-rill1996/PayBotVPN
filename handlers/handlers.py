@@ -13,7 +13,7 @@ from keyboards.users_kb import create_main_keyboard, create_balance_keyboard, cr
 from config import ID_ADMIN_1, ID_ADMIN_2, ID_ADMIN_3
 from typing import Union
 
-from .messages import get_user_info_message, blocked_user_message
+from .messages import get_user_info_message, blocked_user_message, user_last_operations_message
 from .outline_services import create_user_outline, delete_user_outline, block_user_outline, unblock_user_outline
 
 
@@ -54,15 +54,12 @@ async def get_user_info(callback: types.CallbackQuery):
 
 
 async def get_user_last_operations(callback: types.CallbackQuery):
-    """Inline клавиатура "Последние операции" для пользователя"""
+    """Последние пополнения пользователя"""
     user_name = callback.data.split('*')[1]
     user = get_user_from_db(user_name)
     user_operations = get_user_operations_from_db(user.id)
-    string = ''
-    for operation in enumerate(user_operations):
-        string = string + f'{operation[0] + 1}. Дата операции {operation[1].date_operation.strftime("%d.%m.%Y")}\n' \
-                          f'Сумма {operation[1].summ}\n'
-    await bot.send_message(chat_id=callback.message.chat.id, text=string)
+    text_message = user_last_operations_message(user, user_operations)
+    await bot.send_message(chat_id=callback.message.chat.id, text=text_message)
 
 
 async def get_last_operations(message: types.Message):
