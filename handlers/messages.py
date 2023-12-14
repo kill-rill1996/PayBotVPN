@@ -18,3 +18,9 @@ def get_user_info_message(user: User, is_disabled: bool):
         text_message += f'Количество дней просрочки: {days_of_delay.days} дней\n'
     text_message += f'*{user.description}'
     return text_message
+
+
+def blocked_user_message(count: int):
+    if count == 0:
+        return 'Заблокированных пользователей нет'
+    return f'Заблокированные пользователи ({count}):'

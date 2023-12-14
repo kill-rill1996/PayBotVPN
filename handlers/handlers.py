@@ -3,7 +3,7 @@ from datetime import datetime
 from aiogram import types, Dispatcher
 from database.services import add_to_db_users, get_all_users_from_db, get_user_from_db, \
     update_balance_and_date_for_user, delete_user_from_db, create_operation, get_user_operations_from_db, \
-    get_all_operations_from_db, block_user_db, unblock_user_db
+    get_all_operations_from_db, block_user_db, unblock_user_db, get_blocked_user_from_db
 from handlers.service import check_date, calculate_expiration_date, is_debtor
 from create_bot import bot
 from aiogram.dispatcher import FSMContext, filters
@@ -13,7 +13,7 @@ from keyboards.users_kb import create_main_keyboard, create_balance_keyboard, cr
 from config import ID_ADMIN_1, ID_ADMIN_2, ID_ADMIN_3
 from typing import Union
 
-from .messages import get_user_info_message
+from .messages import get_user_info_message, blocked_user_message
 from .outline_services import create_user_outline, delete_user_outline, block_user_outline, unblock_user_outline
 
 
@@ -288,12 +288,20 @@ async def unblock_user(callback: types.CallbackQuery):
                                   reply_markup=create_user_keyboard(user.user_name, False))
 
 
+async def get_blocked_user(message: types.Message):
+    """Список заблокированных пользователей"""
+    blocked_users = get_blocked_user_from_db()
+    text_message = blocked_user_message(len(blocked_users))
+    await message.answer(text=text_message, reply_markup=create_users_list_keyboard(blocked_users))
+
+
 def register_handlers_users(dp: Dispatcher):
     dp.register_message_handler(start_bot, filters.IDFilter(user_id=ID_ADMIN_1), commands=['start'])
     dp.register_message_handler(start_bot, filters.IDFilter(user_id=ID_ADMIN_2), commands=['start'])
     dp.register_message_handler(start_bot, filters.IDFilter(user_id=ID_ADMIN_3), commands=['start'])
     dp.register_message_handler(get_user_list, text='Список пользователей')
     dp.register_message_handler(get_last_operations, text='Последние операции')
+    dp.register_message_handler(get_blocked_user, text='Заблокированные')
     dp.register_callback_query_handler(back_function_for_user, lambda callback: callback.data == 'back')
     dp.register_callback_query_handler(cancel_handler, lambda callback: callback.data == 'cancel', state="*")
     dp.register_callback_query_handler(confirm_delete_user,

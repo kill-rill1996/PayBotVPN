@@ -9,7 +9,8 @@ def create_main_keyboard():
     b2 = KeyboardButton('Список должников')
     b3 = KeyboardButton('Добавить пользователя')
     b4 = KeyboardButton('Последние операции')
-    kb_main.add(b1).insert(b2).add(b3).insert(b4)
+    b5 = KeyboardButton('Заблокированные')
+    kb_main.add(b1).insert(b2).add(b3).insert(b4).add(b5)
     return kb_main
 
 

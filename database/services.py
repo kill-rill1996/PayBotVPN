@@ -100,3 +100,10 @@ def unblock_user_db(key_id: str):
         user = session.query(tables.User).filter_by(key_id=key_id).first()
         user.disabled = False
         session.commit()
+
+
+def get_blocked_user_from_db():
+    with Session() as session:
+        users = session.query(tables.User).filter_by(disabled=True).all()
+    return users
+
