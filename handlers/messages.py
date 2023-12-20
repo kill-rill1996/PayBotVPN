@@ -8,7 +8,7 @@ from handlers.service import is_debtor
 
 def get_user_info_message(user: User, is_disabled: bool):
     transferred_data = get_user_transferred_data(user.key_id)
-    text_message = f"Пользователь: {user.user_name} ({transferred_data} GB)"
+    text_message = f"{user.user_name} ({transferred_data} GB)"
 
     if is_disabled:
         text_message += "❌\n"
